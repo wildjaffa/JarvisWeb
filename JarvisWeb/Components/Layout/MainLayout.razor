@@ -1,18 +1,32 @@
 ﻿@inherits LayoutComponentBase
+@inject IHttpContextAccessor httpContextAccessor
+
 
 <script>
     function startFirebaseUI() {
         console.log('start firebase ui');
-        var ui = new firebaseui.auth.AuthUI(firebase.auth());
-        ui.start('#firebaseui-auth-container', {
+        const ui = new firebaseui.auth.AuthUI(firebase.auth());
+        ui.start('#sign-in-dialog', {
+            callbacks: {
+                signInSuccessWithAuthResult: function (authResult, redirectUrl) {
+                    // User successfully signed in.
+                    // Return type determines whether we continue the redirect automatically
+                    // or whether we leave that to developer to handle.
+                    document.getElementById('sign-in-dialog').close();
+                    return false;
+                },
+            },
             signInOptions: [
             // List of OAuth providers supported.
             firebase.auth.GoogleAuthProvider.PROVIDER_ID,
             ],
+            signInFlow: 'popup',
         });
-
         document.getElementById('sign-in-dialog').show();
+    }
 
+    function logOut() {
+        firebase.auth().signOut();
     }
 </script>
 
@@ -23,8 +37,14 @@
 
     <main>
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-            <a href="#" onclick="startFirebaseUI()">Login</a>
+            @if (isSignedIn)
+            {
+                <button onclick="logOut()" class="btn btn-danger">Logout</button>
+            }
+            else
+            {
+                <button class="btn btn-success" onclick="startFirebaseUI()">Login</button>
+            }
         </div>
 
         <article class="content px-4">
@@ -39,6 +59,17 @@
     <a class="dismiss">🗙</a>
 </div>
 
-<dialog id="sign-in-dialog">
+<dialog style="position:absolute; top: 25%;" id="sign-in-dialog">
     <div id="firebaseui-auth-container"></div>
 </dialog>
+
+@code {
+    bool isSignedIn = false;
+    protected override async Task OnInitializedAsync()
+    {
+        var httpContext = httpContextAccessor.HttpContext;
+        var token = httpContext.Request.Cookies["idToken"];
+        isSignedIn = token != null;
+        await base.OnInitializedAsync();
+    }
+}

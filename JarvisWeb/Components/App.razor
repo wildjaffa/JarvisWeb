@@ -9,18 +9,47 @@
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="JarvisWeb.styles.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
+    <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js"></script>
     <link type="text/css" rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.css" />
 
+    <script>
+        function setCookie(name, value, days) {
+            let expires = "";
+            if (days) {
+                const date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                expires = "; expires=" + date.toUTCString();
+            }
+            document.cookie = name + "=" + (value || "") + expires + "; path=/";
+        }
+        function getCookie(name) {
+            const nameEQ = name + "=";
+            const ca = document.cookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+            }
+            return null;
+        }
+
+        function updateSignInCookie(idToken) {
+            const newToken = idToken ?? '';
+            const currentToken = getCookie('idToken');
+            if (currentToken === newToken) {
+                return;
+            }
+            setCookie('idToken', newToken);
+            console.log('reloading');
+            window.location.reload();
+        }
+    </script>
 
     <script type="module">
         // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-
-        // Add Firebase products that you want to use
-        import { getAuth } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js'
-
         // TODO: Add SDKs for Firebase products that you want to use
         // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -35,7 +64,19 @@
         };
 
         // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
+        const app = firebase.initializeApp(firebaseConfig);
+
+        firebase.auth().onAuthStateChanged(function (user) {
+            if (user) {
+                firebase.auth().currentUser.getIdToken().then(idToken => { 
+                    updateSignInCookie(idToken);
+                });
+            } else {
+                updateSignInCookie(null);
+            }
+        }, function (error) {
+            console.log(error);
+        });
     </script>
     <HeadOutlet />
 </head>
