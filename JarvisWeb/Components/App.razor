@@ -1,0 +1,48 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="JarvisWeb.styles.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <script src="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js"></script>
+    <link type="text/css" rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.css" />
+
+
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+
+        // Add Firebase products that you want to use
+        import { getAuth } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js'
+
+        // TODO: Add SDKs for Firebase products that you want to use
+        // https://firebase.google.com/docs/web/setup#available-libraries
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAlAz7aDsJHja0Q_1JE3xEOkhLeZRlL2FM",
+            authDomain: "jarvisweb-a95df.firebaseapp.com",
+            projectId: "jarvisweb-a95df",
+            storageBucket: "jarvisweb-a95df.firebasestorage.app",
+            messagingSenderId: "1050630267455",
+            appId: "1:1050630267455:web:62ff55b5e4b438ca1a8e8a"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+    </script>
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes />
+    <script src="_framework/blazor.web.js"></script>
+</body>
+
+</html>
