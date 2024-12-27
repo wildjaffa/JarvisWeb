@@ -9,5 +9,6 @@ namespace JarvisWeb.Services.Models
     public class SummaryGenerationRequest
     {
         public Guid UserId { get; set; }
+        public bool GenerateVideo { get; set; } = false;
     }
 }

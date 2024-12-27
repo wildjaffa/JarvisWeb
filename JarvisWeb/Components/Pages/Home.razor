@@ -101,7 +101,7 @@ else
             return;
         }
         dailySummary = await dailySummaryService.GetLatestDailySummary(user.Id);
-        if (dailySummary == null)
+        if (dailySummary == null || dailySummary.SummaryVideoPath == null)
         {
             return;
         }
