@@ -1,10 +1,11 @@
 ﻿namespace JarvisWeb.Domain.Models
 {
-    public class EndOfDayNote
+    public class EndOfDayNote : UserData
     {
-        public Guid Id { get; set; }
         public DateTime DateTime { get; set; }
         public string Note { get; set; }
-        public Guid UserId { get; set; }
+        public string? AudioFilePath { get; set; }
+
+        public DailySummary DailySummary { get; set; }
     }
 }

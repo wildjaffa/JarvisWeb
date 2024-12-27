@@ -3,6 +3,7 @@ using System;
 using JarvisWeb.Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace JarvisWeb.Domain.Migrations
 {
     [DbContext(typeof(JarvisWebDbContext))]
-    partial class JarvisWebDbContextModelSnapshot : ModelSnapshot
+    [Migration("20241226211717_AddDataModels")]
+    partial class AddDataModels
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
@@ -53,7 +56,7 @@ namespace JarvisWeb.Domain.Migrations
                     b.Property<DateTime>("Date")
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid?>("EndOfDayNoteId")
+                    b.Property<Guid>("EndOfDayNoteId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("SummaryText")
@@ -115,9 +118,6 @@ namespace JarvisWeb.Domain.Migrations
                     b.Property<bool>("IsInOffice")
                         .HasColumnType("INTEGER");
 
-                    b.Property<Guid?>("LastSeenDailySummaryId")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -146,7 +146,9 @@ namespace JarvisWeb.Domain.Migrations
                 {
                     b.HasOne("JarvisWeb.Domain.Models.EndOfDayNote", "EndOfDayNote")
                         .WithOne("DailySummary")
-                        .HasForeignKey("JarvisWeb.Domain.Models.DailySummary", "EndOfDayNoteId");
+                        .HasForeignKey("JarvisWeb.Domain.Models.DailySummary", "EndOfDayNoteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("JarvisWeb.Domain.Models.User", "User")
                         .WithMany("DailySummaries")

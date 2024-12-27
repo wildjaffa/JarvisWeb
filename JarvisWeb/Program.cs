@@ -3,6 +3,7 @@ using JarvisWeb.Domain;
 using JarvisWeb.Services.Adapters.Calendar;
 using JarvisWeb.Services.Adapters.LLM;
 using JarvisWeb.Services.Adapters.News;
+using JarvisWeb.Services.Adapters.Transcription;
 using JarvisWeb.Services.Adapters.Weather;
 using JarvisWeb.Services.Interfaces;
 using JarvisWeb.Services.Services;
@@ -31,7 +32,13 @@ builder.Services.AddScoped<INewsService, TheNewsApiService>();
 builder.Services.AddScoped<ICalendarService, HomeAssistantCalendarService>();
 builder.Services.AddScoped<IWeatherService, NOAAWeatherService>();
 builder.Services.AddScoped<ILLMService, OLLamaService>();
-builder.Services.AddScoped<SummaryGenerationService>();
+builder.Services.AddScoped<ITranscriptionService, WhisperService>();
+builder.Services.AddScoped<DailySummaryService>();
+builder.Services.AddScoped<EndOfDayNoteService>();
+builder.Services.AddScoped<ApiKeyService>();
+builder.Services.AddScoped<UserService>();
+builder.Services.AddSingleton<GlobalStateService>();
+builder.Services.AddHttpContextAccessor();
 
 // add Swagger
 builder.Services.AddSwaggerGen(c =>

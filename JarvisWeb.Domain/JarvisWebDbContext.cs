@@ -12,5 +12,8 @@ namespace JarvisWeb.Domain
     {
         public DbSet<User> Users { get; set; }
         public DbSet<EndOfDayNote> EndOfDayNotes { get; set; }
+        public DbSet<DailySummary> DailySummaries { get; set; }
+        public DbSet<ApiKey> ApiKeys { get; set; }
+
     }
 }

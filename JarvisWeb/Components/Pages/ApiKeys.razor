@@ -1,10 +1,89 @@
-﻿@using JarvisWeb.Services.Services
+﻿@page "/api-keys"
+@using JarvisWeb.Domain.Models
+@using JarvisWeb.Models
+@using JarvisWeb.Services.Services
+@using Microsoft.EntityFrameworkCore
 @rendermode InteractiveServer
 @inject ApiKeyService apiKeyService
 @inject IHttpContextAccessor httpContextAccessor
+@inject UserService userService
 
 <h3>ApiKeys</h3>
 
-@code {
+@if (user == null)
+{
+    <p>You must be logged in to see this page</p>
+    return;
+}
 
+
+@foreach (var apiKey in apiKeys)
+{
+    <div style="margin-bottom: .25rem" class="card">
+        <div class="card-body">
+            <h5 class="card-title">@apiKey.Name</h5>
+            @if (apiKey.IsVisible)
+            {
+                <p class="card-text">@apiKey.Key</p>
+                <button @onclick=@(e => apiKey.IsVisible = false) class="btn btn-info">Hide</button>
+            }
+            else
+            {
+                <button @onclick=@(e => apiKey.IsVisible = true) class="btn btn-info">Show</button>
+            }
+            <button style="margin-left: .25rem" @onclick=@(e => DeleteApiKey(apiKey)) class="btn btn-danger">Delete</button>
+        </div>
+    </div>
+}
+
+<h3>New Api Key</h3>
+<input type="text" @bind="apiKeyViewModel.Name" />
+<button class="btn btn-success" @onclick="AddApiKey">Add</button>
+
+
+@code {
+    private User? user;
+    private List<ApiKeyViewModel> apiKeys = new List<ApiKeyViewModel>();
+    private ApiKeyViewModel apiKeyViewModel = new ApiKeyViewModel();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        var httpContext = httpContextAccessor.HttpContext;
+        var token = httpContext.Request.Cookies["idToken"];
+        if (token == null)
+        {
+            return;
+        }
+        user = await userService.GetUserFromJwtToken(token);
+        if (user == null)
+        {
+            return;
+        }
+        await FetchData();
+    }
+
+    private async Task FetchData()
+    {
+        apiKeys = await apiKeyService.GetEntries(user!.Id)
+            .Where(a => a.IsActive)
+            .Select(a => new ApiKeyViewModel(a))
+            .ToListAsync();
+    }
+
+    private async Task AddApiKey()
+    {
+        apiKeyViewModel.UserId = user.Id;
+        apiKeyViewModel.Key = Guid.NewGuid().ToString();
+        apiKeyViewModel.IsActive = true;
+        await apiKeyService.Create(apiKeyViewModel);
+        apiKeyViewModel = new ApiKeyViewModel();
+        await FetchData();
+    }
+
+    private async Task DeleteApiKey(ApiKeyViewModel apiKey)
+    {
+        await apiKeyService.Delete(user.Id, apiKey.Id);
+        await FetchData();
+    }
 }

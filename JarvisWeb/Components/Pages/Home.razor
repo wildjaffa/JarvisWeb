@@ -1,7 +1,117 @@
 ﻿@page "/"
+@using JarvisWeb.Domain.Models
+@using JarvisWeb.Services.Services
+@implements IDisposable
+@rendermode InteractiveServer
+@inject IHttpContextAccessor httpContextAccessor
+@inject UserService userService
+@inject DailySummaryService dailySummaryService
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Your Daily Summary</PageTitle>
 
-<h1>Hello, world!</h1>
+@if(user == null)
+{
+    <p>You must log in to see this page</p>
+    return;
+}
 
-Welcome to your new app.
+@if(dailySummary == null)
+{
+    <p>No daily summaries yet</p>
+    return;
+}
+
+@if(videoUrl != null && !autoPlay)
+{
+    <video controls="controls">
+        <source src="@videoUrl" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+}
+
+@if (videoUrl != null && autoPlay)
+{
+    <video autoplay="autoplay" controls="controls">
+        <source src="@videoUrl" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+}
+
+@if(summaryExpanded)
+{
+    <p>@dailySummary.SummaryText</p>
+}
+else
+{
+    <p>@dailySummary.SummaryText.Substring(0, 20)...</p>
+}
+
+<button class="btn btn-success" @onclick=@((e => summaryExpanded = !summaryExpanded))>
+    @(summaryExpanded ? "Minimize" : "Expand")
+</button>
+
+
+@code {
+    private User? user;
+    private string? token;
+    private string? videoUrl;
+    private bool autoPlay = false;
+    private bool summaryExpanded = false;
+
+    private DailySummary? dailySummary;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        var httpContext = httpContextAccessor.HttpContext;
+        token = httpContext.Request.Cookies["idToken"];
+        if (token == null)
+        {
+            return;
+        }
+        await FetchData();
+        GlobalStateService.Notify += OnNotify;
+    }
+
+    public void Dispose()
+    {
+        GlobalStateService.Notify -= OnNotify;
+    }
+
+    public async Task OnNotify(Guid userId)
+    {
+        if (user?.Id != userId)
+        {
+            return;
+        }
+
+        await FetchData();
+        await InvokeAsync(() =>
+        {
+            StateHasChanged();
+        });
+    }
+
+    private async Task FetchData()
+    {
+        user = await userService.GetUserFromJwtToken(token);
+        if (user == null)
+        {
+            return;
+        }
+        dailySummary = await dailySummaryService.GetLatestDailySummary(user.Id);
+        if (dailySummary == null)
+        {
+            return;
+        }
+        videoUrl = $"/api/DailySummary/get-video?summaryId={dailySummary.Id}";
+        autoPlay = dailySummary.Id != user.LastSeenDailySummaryId && user.IsInOffice;
+        if (autoPlay)
+        {
+            user.LastSeenDailySummaryId = dailySummary.Id;
+            await userService.Update(user);
+        }
+    }
+
+}

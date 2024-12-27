@@ -4,10 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace JarvisWeb.Services.Models
+namespace JarvisWeb.Domain.Models
 {
-    public class SummaryGenerationRequest
+    public abstract class UserData
     {
+        public Guid Id { get; set; }
         public Guid UserId { get; set; }
+        public User User { get; set; }
     }
 }
