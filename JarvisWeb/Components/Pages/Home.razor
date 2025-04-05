@@ -1,11 +1,14 @@
 ﻿@page "/"
 @using JarvisWeb.Domain.Models
 @using JarvisWeb.Services.Services
-@implements IDisposable
+@* @implements IDisposable *@
 @rendermode InteractiveServer
 @inject IHttpContextAccessor httpContextAccessor
 @inject UserService userService
 @inject DailySummaryService dailySummaryService
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
 
 <PageTitle>Your Daily Summary</PageTitle>
 
@@ -46,9 +49,11 @@ else
     <p>@dailySummary.SummaryText.Substring(0, 20)...</p>
 }
 
-<button class="btn btn-success" @onclick=@((e => summaryExpanded = !summaryExpanded))>
+<button class="btn btn-info" @onclick=@((e => summaryExpanded = !summaryExpanded))>
     @(summaryExpanded ? "Minimize" : "Expand")
 </button>
+
+<button id="record-btn" class="btn btn-success">Finish for the day</button>
 
 
 @code {
@@ -59,6 +64,31 @@ else
     private bool summaryExpanded = false;
 
     private DailySummary? dailySummary;
+    private IJSObjectReference? module;
+    
+    protected async override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        module = await JS.InvokeAsync<IJSObjectReference>("import",
+            "./Components/Pages/Home.razor.js");
+
+        await module.InvokeVoidAsync("addHandlers");
+    }
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        if (module is not null)
+        {
+            try
+            {
+                await module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+        GlobalStateService.Notify -= OnNotify;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -72,11 +102,6 @@ else
         }
         await FetchData();
         GlobalStateService.Notify += OnNotify;
-    }
-
-    public void Dispose()
-    {
-        GlobalStateService.Notify -= OnNotify;
     }
 
     public async Task OnNotify(Guid userId)

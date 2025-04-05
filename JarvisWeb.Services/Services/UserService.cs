@@ -13,10 +13,12 @@ namespace JarvisWeb.Services.Services
 {
     public class UserService(
         ILogger<UserService> logger,
-        JarvisWebDbContext context)
+        JarvisWebDbContext context,
+        GlobalStateService globalStateService)
     {
         ILogger<UserService> _logger = logger;
         JarvisWebDbContext _context = context;
+        GlobalStateService _globalStateService = globalStateService;
 
         public async Task<User> GetUserByIdAsync(Guid id)
         {
@@ -52,6 +54,22 @@ namespace JarvisWeb.Services.Services
             _context.Users.Update(dbUser);
             await _context.SaveChangesAsync();
             return dbUser;
+        }
+
+        public async Task UpdateUserIsInOffice(Guid userId, bool isInOffice)
+        {
+            var dbUser = await _context.Users.FindAsync(userId);
+            if (dbUser == null)
+            {
+                return;
+            }
+            dbUser.IsInOffice = isInOffice;
+            _context.Update(dbUser);
+            await _context.SaveChangesAsync();
+            _globalStateService.StateHasChanged(userId);
+            if (!isInOffice) return;
+            await Task.Delay(10 * 1000);
+            await BashUtilities.RunCommandWithBash("/mnt/sda5/ai-assistant/scripts/map-touchscreen.sh", _logger);
         }
     }
 }

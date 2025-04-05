@@ -27,7 +27,7 @@ public class SadTalkerService(
             var generationCommand = _configuration["SadTalker:GenerationScript"];
             var filePath = _configuration["SadTalker:Path"];
             var command = $"{generationCommand} \"{text}\" \"{filePath}\" {fileName}";
-            await RunCommandWithBash(command);
+            await BashUtilities.RunCommandWithBash(command, _logger);
             var fullPath = Path.Join(filePath, fileName);
             return new ServiceResponseModel<string>
             {
@@ -44,24 +44,5 @@ public class SadTalkerService(
                 ErrorMessage = ex.Message
             };
         }
-    }
-
-    private async Task RunCommandWithBash(string command)
-    {
-        var psi = new ProcessStartInfo
-        {
-            FileName = "/bin/bash",
-            Arguments = command,
-            RedirectStandardOutput = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        using var process = Process.Start(psi);
-
-        await process.WaitForExitAsync();
-
-        var output = process.StandardOutput.ReadToEnd();
-        _logger.LogDebug(output);
     }
 }

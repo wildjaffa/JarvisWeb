@@ -94,15 +94,17 @@ namespace JarvisWeb.Services.Services
 
             if(request.GenerateVideo)
             {
-                await GenerateSummaryVideo(request.UserId, savedSummary.Id);
+                await GenerateSummaryVideo(request.UserId);
             }
 
             return savedSummary;
         }
 
-        public async Task GenerateSummaryVideo(Guid userId, Guid summaryId)
+        public async Task GenerateSummaryVideo(Guid userId)
         {
-            var summary = await _context.DailySummaries.FirstOrDefaultAsync(d => d.UserId == userId && d.Id == summaryId);
+            var summary = await _context.DailySummaries
+            .OrderByDescending(d => d.Date)
+            .FirstOrDefaultAsync(d => d.UserId == userId && d.SummaryVideoPath == null);
             if (summary == null)
             {
                 return;

@@ -37,7 +37,7 @@ namespace JarvisWeb.Controllers
             var generationRequest = new Services.Models.SummaryGenerationRequest
             {
                 UserId = user.Id,
-                GenerateVideo = true
+                GenerateVideo = false
             };
             var summary = await _dailySummaryService.GenerateSummaryAsync(generationRequest);
 
@@ -46,7 +46,7 @@ namespace JarvisWeb.Controllers
 
         [HttpPost]
         [Route("generate-video")]
-        public async Task<IActionResult> GenerateVideo(SummaryVideoGenerationRequest request, [FromHeader] string authorization)
+        public async Task<IActionResult> GenerateVideo([FromHeader] string authorization)
         {
             if (authorization == null)
             {
@@ -57,8 +57,8 @@ namespace JarvisWeb.Controllers
             {
                 return Unauthorized();
             }
-            _logger.LogInformation("Generating summary video for {userId} {summaryId}", user.Id, request.Id);
-            _dailySummaryService.GenerateSummaryVideo(user.Id, request.Id);
+            _logger.LogInformation("Generating summary video for {userId}", user.Id);
+            _dailySummaryService.GenerateSummaryVideo(user.Id);
             return Ok("Generation Started");
         }
 
