@@ -5,11 +5,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "C#: JarvisWb Debug",
+            "name": "C#: JarvisWeb Debug",
             "type": "dotnet",
             "request": "launch",
             "projectPath": "${workspaceFolder}/JarvisWeb/JarvisWeb.csproj"
         }
-
     ]
 }

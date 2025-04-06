@@ -23,7 +23,21 @@ namespace JarvisWeb.Controllers
             {
                 return Unauthorized();
             }
-            user.IsInOffice = model.IsInOffice;
+            _userService.UpdateUserIsInOffice(user.Id, model.IsInOffice);
+            return Ok();
+        }
+
+        [HttpPost]
+        [Route("reset")]
+        public async Task<IActionResult> ResetUserInformation([FromHeader] string authorization)
+        {
+            var user = await _userService.GetUserByApiKey(authorization);
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+            user.IsInOffice = false;
+            user.LastSeenDailySummaryId = null;
             await _userService.Update(user);
             _globalStateService.StateHasChanged(user.Id);
             return Ok();
