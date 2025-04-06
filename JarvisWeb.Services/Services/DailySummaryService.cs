@@ -5,11 +5,7 @@ using JarvisWeb.Services.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace JarvisWeb.Services.Services
 {
@@ -19,12 +15,15 @@ namespace JarvisWeb.Services.Services
         INewsService newsService,
         IWeatherService weatherService,
         ICalendarService calendarService,
-        ILLMService llmService) : BaseService<DailySummary>(context, logger, context.DailySummaries)
+        ILLMService llmService,
+        IVideoGenerationService videoGenerationService) : BaseService<DailySummary>(context, logger, context.DailySummaries)
     {
         private readonly INewsService _newsService = newsService;
         private readonly IWeatherService _weatherService = weatherService;
         private readonly ICalendarService _calendarService = calendarService;
         private readonly ILLMService _llmService = llmService;
+        private readonly IVideoGenerationService _videoGenerationService = videoGenerationService;
+
 
         private const string _beginPrompt = "You are a helpful executive assistant. I am your manager. My name is Josh Jensen. You may refer to me in a variety of ways including, sir, Mr. Jensen, Mr. Josh, or other business friendly ways, be creative with your wording. Do not include any information not included in the dataset you are provided. I need a morning summary with the following information:";
 
@@ -33,7 +32,7 @@ namespace JarvisWeb.Services.Services
             _logger.LogInformation("Generating summary for {0}", request);
 
             var storiesTask = _newsService.GetNewsAsync(DateTime.Now.AddDays(-1), DateTime.Now, 3);
-            var eventsTask = _calendarService.GetEventsAsync(DateTime.Now.AddDays(-3), DateTime.Now.AddDays(1));
+            var eventsTask = _calendarService.GetEventsAsync(DateTime.Now.AddDays(0), DateTime.Now.AddDays(1));
             var weatherTask = _weatherService.GetWeatherAsync(DateTime.Now, DateTime.Now.AddDays(1));
 
             await Task.WhenAll(storiesTask,
@@ -53,7 +52,7 @@ namespace JarvisWeb.Services.Services
 
             ProcessWeather(promptData, weather);
 
-            ProccessEvents(promptData, events);
+            ProcessEvents(promptData, events);
 
             ProcessNews(promptData, stories);
             
@@ -91,7 +90,32 @@ namespace JarvisWeb.Services.Services
                 dailySummary.SummaryText = aiSummary.Data.Completion;
             }
 
-            return await Create(dailySummary);
+            var savedSummary = await Create(dailySummary);
+
+            if(request.GenerateVideo)
+            {
+                await GenerateSummaryVideo(request.UserId);
+            }
+
+            return savedSummary;
+        }
+
+        public async Task GenerateSummaryVideo(Guid userId)
+        {
+            var summary = await _context.DailySummaries
+            .OrderByDescending(d => d.Date)
+            .FirstOrDefaultAsync(d => d.UserId == userId && d.SummaryVideoPath == null);
+            if (summary == null)
+            {
+                return;
+            }
+            var generationResult = await _videoGenerationService.GenerateVideoFromText(summary.SummaryText, summary.Id.ToString());
+            if (!generationResult.IsSuccess)
+            {
+                return;
+            }
+            summary.SummaryVideoPath = generationResult.Data;
+            await Update(summary);
         }
 
         public async Task<DailySummary?> GetLatestDailySummary(Guid userId)
@@ -114,7 +138,7 @@ namespace JarvisWeb.Services.Services
             promptData.PercentChanceOfRain = forecast[0].ChanceOfRain;
         }
 
-        private static void ProccessEvents(PromptData promptData, ServiceResponseModel<IEnumerable<CalendarEvent>> events)
+        private static void ProcessEvents(PromptData promptData, ServiceResponseModel<IEnumerable<CalendarEvent>> events)
         {
             if (!events.IsSuccess)
             {

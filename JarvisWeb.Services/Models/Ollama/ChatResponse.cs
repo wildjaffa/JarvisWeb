@@ -28,16 +28,16 @@ namespace JarvisWeb.Services.Models.Ollama
         public long TotalDuration { get; set; }
 
         [JsonProperty("load_duration")]
-        public int LoadDuration { get; set; }
+        public long LoadDuration { get; set; }
 
         [JsonProperty("prompt_eval_count")]
-        public int PromptEvalCount { get; set; }
+        public long PromptEvalCount { get; set; }
 
         [JsonProperty("prompt_eval_duration")]
-        public int PromptEvalDuration { get; set; }
+        public long PromptEvalDuration { get; set; }
 
         [JsonProperty("eval_count")]
-        public int EvalCount { get; set; }
+        public long EvalCount { get; set; }
 
         [JsonProperty("eval_duration")]
         public long EvalDuration { get; set; }

@@ -20,7 +20,7 @@ namespace JarvisWeb.Controllers
 
 
         [HttpPost]
-        [Route("generate")]
+        [Route("generate-summary")]
         public async Task<IActionResult> GenerateSummary([FromHeader] string authorization)
         {
             if (authorization == null)
@@ -37,10 +37,29 @@ namespace JarvisWeb.Controllers
             var generationRequest = new Services.Models.SummaryGenerationRequest
             {
                 UserId = user.Id,
+                GenerateVideo = false
             };
             var summary = await _dailySummaryService.GenerateSummaryAsync(generationRequest);
 
             return Ok(summary);
+        }
+
+        [HttpPost]
+        [Route("generate-video")]
+        public async Task<IActionResult> GenerateVideo([FromHeader] string authorization)
+        {
+            if (authorization == null)
+            {
+                return Unauthorized();
+            }
+            var user = await _userService.GetUserByApiKey(authorization);
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+            _logger.LogInformation("Generating summary video for {userId}", user.Id);
+            _dailySummaryService.GenerateSummaryVideo(user.Id);
+            return Ok("Generation Started");
         }
 
         [HttpGet]
