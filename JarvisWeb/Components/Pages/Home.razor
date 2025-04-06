@@ -6,8 +6,11 @@
 @inject IHttpContextAccessor httpContextAccessor
 @inject UserService userService
 @inject DailySummaryService dailySummaryService
+@inject ITextToSpeechService textToSpeechService
 
 <PageTitle>Your Daily Summary</PageTitle>
+<InputText @bind-Value="AudioGeneration" />
+<button class="btn btn-primary" @onclick="GenerateAudio">Generate Audio</button>
 
 @if(user == null)
 {
@@ -59,6 +62,8 @@ else
     private bool summaryExpanded = false;
 
     private DailySummary? dailySummary;
+
+    public string AudioGeneration = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -113,5 +118,8 @@ else
             await userService.Update(user);
         }
     }
-
+    private void GenerateAudio(MouseEventArgs args)
+    {
+        textToSpeechService.ConvertTextToSpeech(AudioGeneration, "", "wav", "/home/josh/Documents/source/JarvisWeb/generated-path/Generated.wav");
+    }
 }

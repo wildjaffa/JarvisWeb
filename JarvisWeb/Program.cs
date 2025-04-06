@@ -3,6 +3,7 @@ using JarvisWeb.Domain;
 using JarvisWeb.Services.Adapters.Calendar;
 using JarvisWeb.Services.Adapters.LLM;
 using JarvisWeb.Services.Adapters.News;
+using JarvisWeb.Services.Adapters.TextToSpeech;
 using JarvisWeb.Services.Adapters.Transcription;
 using JarvisWeb.Services.Adapters.Weather;
 using JarvisWeb.Services.Interfaces;
@@ -38,6 +39,7 @@ builder.Services.AddScoped<EndOfDayNoteService>();
 builder.Services.AddScoped<ApiKeyService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddSingleton<GlobalStateService>();
+builder.Services.AddSingleton<ITextToSpeechService, SesameService>();
 builder.Services.AddHttpContextAccessor();
 
 // add Swagger
