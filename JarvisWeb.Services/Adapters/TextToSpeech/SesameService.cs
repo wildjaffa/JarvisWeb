@@ -1,23 +1,34 @@
+using System.Collections.Concurrent;
+using System.Diagnostics;
 using JarvisWeb.Services.Models;
+using JarvisWeb.Services.Models.Sesame;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System.Diagnostics;
-using System.Net.Http;
-using System.Threading.Tasks;
+using Newtonsoft.Json;
+using RestSharp;
 
 namespace JarvisWeb.Services.Adapters.TextToSpeech;
 
-public class SesameService(IConfiguration configuration, ILogger<SesameService> logger) : ITextToSpeechService, IDisposable
+public class SesameService(IConfiguration configuration, ILogger<SesameService> logger)
+    : ITextToSpeechService,
+        IDisposable
 {
+    private readonly ConcurrentQueue<(
+        string Text,
+        TaskCompletionSource<ServiceResponseModel<string>> Tcs
+    )> _queue = new();
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
+    private bool _isProcessingQueue = false;
     private readonly IConfiguration _configuration = configuration;
     private readonly ILogger<SesameService> _logger = logger;
-    private readonly HttpClient _httpClient = new();
+    private readonly RestClient _restClient = new("http://localhost:5000");
     private Process? _sesameProcess;
+    private bool _sesameRunningSeperately = false;
     private bool _disposed;
 
     public async Task Initialize()
     {
-        if (_sesameProcess != null && !_sesameProcess.HasExited)
+        if ((_sesameProcess != null && !_sesameProcess.HasExited) || _sesameRunningSeperately)
         {
             _logger.LogInformation("[SesameService] Sesame server is already running.");
             return;
@@ -25,27 +36,56 @@ public class SesameService(IConfiguration configuration, ILogger<SesameService> 
         _logger.LogInformation("[SesameService] Starting Sesame server...");
         try
         {
+            // Check if the server is already running
+            try
+            {
+                var result = await ConvertTextToSpeech(
+                    "Warm-up text",
+                    "default",
+                    "mp3",
+                    "/dev/null",
+                    false
+                );
+                if (result.IsSuccess)
+                {
+                    _sesameRunningSeperately = true;
+                    _logger.LogInformation("[SesameService] Sesame server is already running.");
+                    return;
+                }
+            }
+            catch (HttpRequestException)
+            {
+                // Server is not running, proceed to start it
+            }
+
             // Start the Sesame server as a subprocess
             _sesameProcess = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName = Environment.OSVersion.Platform == PlatformID.Win32NT ? "cmd.exe" : "/bin/bash",
-                    Arguments = Environment.OSVersion.Platform == PlatformID.Win32NT 
-                        ? $"/c python path\\to\\sesame_server.py" 
-                        : $"-c \"/home/josh/Documents/source/JarvisWeb/JarvisWeb.Services/Adapters/TextToSpeech/start_sesame.sh\"",
+                    FileName =
+                        Environment.OSVersion.Platform == PlatformID.Win32NT
+                            ? "cmd.exe"
+                            : "/bin/bash",
+                    Arguments =
+                        Environment.OSVersion.Platform == PlatformID.Win32NT
+                            ? $"/c python path\\to\\sesame_server.py"
+                            : $"-c \"/home/josh/Documents/source/JarvisWeb/JarvisWeb.Services/Adapters/TextToSpeech/start_sesame.sh\"",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
-                    CreateNoWindow = true
-                }
+                    CreateNoWindow = true,
+                },
             };
 
             _sesameProcess.OutputDataReceived += (sender, args) =>
             {
                 if (!string.IsNullOrEmpty(args.Data))
                 {
-                    _logger.LogInformation("[SesameService] Sesame server output: {output}", args.Data);
+                    _logger.LogInformation(
+                        "[SesameService] Sesame server output: {output}",
+                        args.Data
+                    );
                 }
             };
 
@@ -61,7 +101,10 @@ public class SesameService(IConfiguration configuration, ILogger<SesameService> 
             _sesameProcess.BeginOutputReadLine();
             _sesameProcess.BeginErrorReadLine();
 
-            _logger.LogInformation("[SesameService] Sesame server started with PID: {pid}", _sesameProcess.Id);
+            _logger.LogInformation(
+                "[SesameService] Sesame server started with PID: {pid}",
+                _sesameProcess.Id
+            );
 
             // Wait for the server to start (you may want to implement a more robust check)
             await Task.Delay(10000); // Adjust the delay as needed
@@ -78,16 +121,29 @@ public class SesameService(IConfiguration configuration, ILogger<SesameService> 
             {
                 try
                 {
-                    _logger.LogInformation("[SesameService] Warming up Sesame server. Attempt {attempt}", attempts + 1);
-                    var response = await ConvertTextToSpeech("Warm-up text", "default", "mp3", "/dev/null");
+                    _logger.LogInformation(
+                        "[SesameService] Warming up Sesame server. Attempt {attempt}",
+                        attempts + 1
+                    );
+                    var response = await ConvertTextToSpeech(
+                        "Warm-up text",
+                        "default",
+                        "wav",
+                        "/dev/null"
+                    );
                     if (response.IsSuccess)
                     {
                         isWarmedUp = true;
-                        _logger.LogInformation("[SesameService] Sesame server warmed up successfully.");
+                        _logger.LogInformation(
+                            "[SesameService] Sesame server warmed up successfully."
+                        );
                     }
                     else
                     {
-                        _logger.LogWarning("[SesameService] Warm-up attempt failed: {errorMessage}", response.ErrorMessage);
+                        _logger.LogWarning(
+                            "[SesameService] Warm-up attempt failed: {errorMessage}",
+                            response.ErrorMessage
+                        );
                     }
                 }
                 catch (Exception ex)
@@ -104,7 +160,9 @@ public class SesameService(IConfiguration configuration, ILogger<SesameService> 
 
             if (!isWarmedUp)
             {
-                _logger.LogError("[SesameService] Failed to warm up Sesame server after 3 attempts.");
+                _logger.LogError(
+                    "[SesameService] Failed to warm up Sesame server after 3 attempts."
+                );
                 throw new Exception("Failed to warm up Sesame server.");
             }
         }
@@ -115,51 +173,77 @@ public class SesameService(IConfiguration configuration, ILogger<SesameService> 
         }
     }
 
-    public async Task<ServiceResponseModel<string>> ConvertTextToSpeech(string text, string voiceId, string outputFormat, string audioFilePath)
+    public async Task<ServiceResponseModel<string>> ConvertTextToSpeech(
+        string text,
+        string voiceId,
+        string outputFormat,
+        string audioFilePath,
+        bool? startIfNotRunning = true
+    )
     {
-        try
+        var tcs = new TaskCompletionSource<ServiceResponseModel<string>>();
+        _queue.Enqueue((text, tcs));
+
+        // Start processing the queue if not already running
+        if (!_isProcessingQueue)
         {
-            if (_sesameProcess == null)
-            {
-                await Initialize();
-            }
-            // Construct the request URL
-            var requestUrl = $"http://localhost:5000/speak?sentence={Uri.EscapeDataString(text)}";
-
-            // Send the request to the Sesame server
-            _logger.LogInformation("[SesameService] Sending request to Sesame server: {url}", requestUrl);
-            var response = await _httpClient.GetAsync(requestUrl);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogError("[SesameService] Failed to retrieve audio. Status code: {statusCode}", response.StatusCode);
-                return new ServiceResponseModel<string>
-                {
-                    IsSuccess = false,
-                    ErrorMessage = $"Failed to retrieve audio. Status code: {response.StatusCode}"
-                };
-            }
-
-            // Save the audio file to the specified path
-            await using var fileStream = new FileStream(audioFilePath, FileMode.Create, FileAccess.Write);
-            await response.Content.CopyToAsync(fileStream);
-
-            _logger.LogInformation("[SesameService] Audio file saved successfully at: {path}", audioFilePath);
-            return new ServiceResponseModel<string>
-            {
-                IsSuccess = true,
-                Data = audioFilePath
-            };
+            _isProcessingQueue = true;
+            _ = ProcessQueueAsync();
         }
-        catch (Exception ex)
+
+        return await tcs.Task;
+    }
+
+    private async Task ProcessQueueAsync()
+    {
+        while (_queue.TryDequeue(out var item))
         {
-            _logger.LogError(ex, "[SesameService] Error during ConvertTextToSpeech.");
+            var (text, tcs) = item;
+
+            try
+            {
+                await _semaphore.WaitAsync();
+
+                // Process the request
+                var result = await ProcessTextToSpeechAsync(text);
+                tcs.SetResult(result);
+            }
+            catch (Exception ex)
+            {
+                tcs.SetException(ex);
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
+        }
+
+        _isProcessingQueue = false;
+    }
+
+    private async Task<ServiceResponseModel<string>> ProcessTextToSpeechAsync(string inputText)
+    {
+        var generationText = SanitizeStringForGeneration(inputText);
+        var request = new RestRequest("speak", Method.Get);
+        request.AddParameter("sentence", generationText);
+        _logger.LogInformation("Generating Audio for {text}", generationText);
+        var response = await _restClient.ExecuteAsync(request);
+
+        if (!response.IsSuccessful)
+        {
             return new ServiceResponseModel<string>
             {
                 IsSuccess = false,
-                ErrorMessage = ex.Message
+                ErrorMessage = $"Failed to retrieve audio. Status code: {response.StatusCode}",
             };
         }
+
+        var fileLocation = JsonConvert.DeserializeObject<GenerateAudioResponse>(response.Content!);
+        return new ServiceResponseModel<string>
+        {
+            IsSuccess = true,
+            Data = fileLocation.AudioFilePath,
+        };
     }
 
     public void Dispose()
@@ -175,18 +259,22 @@ public class SesameService(IConfiguration configuration, ILogger<SesameService> 
             _logger.LogInformation("[SesameService] Sesame server is not running.");
             return;
         }
-        await _httpClient.PostAsync("http://localhost:5000/shutdown", null);
+        var shutdownRequest = new RestRequest("shutdown", Method.Post);
+        await _restClient.ExecuteAsync(shutdownRequest);
         // Dispose managed resources
         if (_sesameProcess != null && !_sesameProcess.HasExited)
         {
-            _logger.LogInformation("[SesameService] Stopping Sesame server with PID: {pid}", _sesameProcess.Id);
+            _logger.LogInformation(
+                "[SesameService] Stopping Sesame server with PID: {pid}",
+                _sesameProcess.Id
+            );
             _sesameProcess.Kill();
             _sesameProcess.Dispose();
             _sesameProcess = null;
         }
 
-        _httpClient.Dispose();
         _logger.LogInformation("[SesameService] HttpClient disposed.");
+        _sesameRunningSeperately = false;
     }
 
     protected virtual void Dispose(bool disposing)
@@ -204,8 +292,33 @@ public class SesameService(IConfiguration configuration, ILogger<SesameService> 
         _disposed = true;
     }
 
+    public Task<ServiceResponseModel<string>> ConvertTextToSpeech(
+        string text,
+        string voiceId,
+        string outputFormat,
+        string audioFilePath
+    )
+    {
+        return ConvertTextToSpeech(text, voiceId, outputFormat, audioFilePath, false);
+    }
+
     ~SesameService()
     {
         Dispose(disposing: false);
+    }
+
+    private string SanitizeStringForGeneration(string text)
+    {
+        var returnText = text.Replace("\n", " ").Replace("\r", " ");
+        returnText = new string(
+            [.. returnText.Where(c => char.IsLetterOrDigit(c) || ",!?.' ".Contains(c))]
+        );
+        while (returnText.Contains("  "))
+            returnText = returnText.Replace("  ", " ");
+        _logger.LogInformation(
+            "Sending the following text to be converted to speech: {text}",
+            returnText
+        );
+        return returnText;
     }
 }

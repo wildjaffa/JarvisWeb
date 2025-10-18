@@ -3,8 +3,8 @@ using JarvisWeb.Domain;
 using JarvisWeb.Services.Adapters.Calendar;
 using JarvisWeb.Services.Adapters.LLM;
 using JarvisWeb.Services.Adapters.News;
-using JarvisWeb.Services.Adapters.TextToSpeech;
 using JarvisWeb.Services.Adapters.SadTalker;
+using JarvisWeb.Services.Adapters.TextToSpeech;
 using JarvisWeb.Services.Adapters.Transcription;
 using JarvisWeb.Services.Adapters.Weather;
 using JarvisWeb.Services.Interfaces;
@@ -23,17 +23,18 @@ var logger = new LoggerConfiguration()
 builder.Logging.AddSerilog(logger);
 
 builder.Services.AddDbContext<JarvisWebDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("JarvisWebDb")));
+    options.UseSqlite(builder.Configuration.GetConnectionString("JarvisWebDb"))
+);
 
 // Add services to the container.
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
 builder.Services.AddControllers();
 builder.Services.AddScoped<INewsService, TheNewsApiService>();
 builder.Services.AddScoped<ICalendarService, HomeAssistantCalendarService>();
 builder.Services.AddScoped<IWeatherService, NOAAWeatherService>();
-builder.Services.AddScoped<ILLMService, OLLamaService>();
+builder.Services.AddSingleton<ILLMService, OLLamaService>();
+builder.Services.AddScoped<ConversationService>();
 builder.Services.AddScoped<ITranscriptionService, WhisperService>();
 builder.Services.AddScoped<IVideoGenerationService, SadTalkerService>();
 builder.Services.AddScoped<DailySummaryService>();
@@ -94,12 +95,11 @@ builder
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Firebase:ValidIssuer"],
-            ValidAudience = builder.Configuration["Jwt:Firebase:ValidAudience"]
+            ValidAudience = builder.Configuration["Jwt:Firebase:ValidAudience"],
         };
     });
 
 builder.Services.AddAuthorization();
-
 
 var app = builder.Build();
 
@@ -115,11 +115,9 @@ app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
 app.MapControllerRoute(name: "default", pattern: "{controller=Home}/{action=Index}/{id?}");
-
 
 app.UseSwagger();
 app.UseSwaggerUI(c =>
@@ -138,5 +136,8 @@ using (var scope = app.Services.CreateScope())
 
 app.UseRouting();
 app.UseAntiforgery();
+
+// var textToSpeechService = app.Services.GetRequiredService<ITextToSpeechService>();
+// textToSpeechService.Initialize().Wait();
 
 app.Run();
