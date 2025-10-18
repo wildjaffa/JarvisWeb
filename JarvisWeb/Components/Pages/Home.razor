@@ -6,25 +6,35 @@
 @inject IHttpContextAccessor httpContextAccessor
 @inject UserService userService
 @inject DailySummaryService dailySummaryService
+@inject ConversationService conversationService
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
 
 <PageTitle>Your Daily Summary</PageTitle>
+<InputText @bind-Value="AudioGeneration" />
+<button class="btn btn-primary" @onclick="GenerateAudio">Generate Audio</button>
+<p id="conversationResponse">@AudioResponse</p>
 
-@if(user == null)
+@foreach (var audioFile in AudioFiles)
+{
+    <audio style="display: none;" id="audio-@audioFile.Key" controls
+        src="/media/audio?filePath=@Uri.EscapeDataString(audioFile.Value)"></audio>
+}
+
+@if (user == null)
 {
     <p>You must log in to see this page</p>
     return;
 }
 
-@if(dailySummary == null)
+@if (dailySummary == null)
 {
     <p>No daily summaries yet</p>
     return;
 }
 
-@if(videoUrl != null && !autoPlay)
+@if (videoUrl != null && !autoPlay)
 {
     <video controls="controls">
         <source src="@videoUrl" type="video/mp4">
@@ -40,7 +50,7 @@
     </video>
 }
 
-@if(summaryExpanded)
+@if (summaryExpanded)
 {
     <p>@dailySummary.SummaryText</p>
 }
@@ -65,12 +75,16 @@ else
 
     private DailySummary? dailySummary;
     private IJSObjectReference? module;
-    
+
+    public string AudioGeneration = "";
+    public string AudioResponse = "";
+    public Dictionary<int, string> AudioFiles = new Dictionary<int, string>();
+
     protected async override Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
         module = await JS.InvokeAsync<IJSObjectReference>("import",
-            "./Components/Pages/Home.razor.js");
+        "./Components/Pages/Home.razor.js");
 
         await module.InvokeVoidAsync("addHandlers");
     }
@@ -138,5 +152,22 @@ else
             await userService.Update(user);
         }
     }
-
+    private async Task GenerateAudio(MouseEventArgs args)
+    {
+        var results = conversationService.GetResponseAsync(AudioGeneration);
+        await foreach (var result in results)
+        {
+            AudioResponse += result.Text;
+            var last = -1;
+            if (AudioFiles.Any())
+                last = AudioFiles.LastOrDefault().Key;
+            AudioFiles.Add(last + 1, result.Audio);
+            await InvokeAsync(() =>
+            {
+                StateHasChanged();
+            });
+            if (last == 0)
+                await module.InvokeVoidAsync("beginAudioPlayBack");
+        }
+    }
 }

@@ -1,9 +1,9 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 namespace JarvisWeb.Services.Models.Ollama
 {
@@ -42,6 +42,4 @@ namespace JarvisWeb.Services.Models.Ollama
         [JsonProperty("eval_duration")]
         public long EvalDuration { get; set; }
     }
-
-
 }

@@ -5,20 +5,20 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using RestSharp;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace JarvisWeb.Services.Adapters.News
 {
-    public class TheNewsApiService(ILogger<TheNewsApiService> logger, IConfiguration configuration) : INewsService
+    public class TheNewsApiService(ILogger<TheNewsApiService> logger, IConfiguration configuration)
+        : INewsService
     {
         private readonly ILogger<TheNewsApiService> _logger = logger;
         private readonly IConfiguration _configuration = configuration;
 
-        public async Task<ServiceResponseModel<IEnumerable<NewsStory>>> GetNewsAsync(DateTime startDate, DateTime endDate, int limit)
+        public async Task<ServiceResponseModel<IEnumerable<NewsStory>>> GetNewsAsync(
+            DateTime startDate,
+            DateTime endDate,
+            int limit
+        )
         {
             try
             {
@@ -31,7 +31,10 @@ namespace JarvisWeb.Services.Adapters.News
                     MaxTimeout = -1,
                 };
                 var client = new RestClient(options);
-                var request = new RestRequest($"v1/news/top?api_token={apiKey}&locale=us&limit=3", Method.Get);
+                var request = new RestRequest(
+                    $"v1/news/top?api_token={apiKey}&locale=us&limit=3",
+                    Method.Get
+                );
                 RestResponse response = await client.ExecuteAsync(request);
                 var stories = JsonConvert.DeserializeObject<TopStories>(response.Content);
                 var newsStories = stories.Data.Select(a => new NewsStory
@@ -40,7 +43,7 @@ namespace JarvisWeb.Services.Adapters.News
                     Content = a.Snippet,
                     Description = a.Description,
                     Source = a.Source,
-                    Url = a.Url
+                    Url = a.Url,
                 });
 
                 var result = new ServiceResponseModel<IEnumerable<NewsStory>>

@@ -1,14 +1,18 @@
 ﻿using JarvisWeb.Services.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using JarvisWeb.Services.Models.Ollama;
 
 namespace JarvisWeb.Services.Interfaces
 {
     public interface ILLMService
     {
-        Task<ServiceResponseModel<LLMCompletion>> GetLLMCompletionAsync(string prompt);
+        Task<ServiceResponseModel<LLMCompletion>> GetLLMCompletionAsync(
+            string prompt,
+            string? model = null
+        );
+
+        IAsyncEnumerable<ChatResponse> StreamLLMCompletionAsync(
+            string prompt,
+            string? model = null
+        );
     }
 }
